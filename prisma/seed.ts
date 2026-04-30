@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, type Prisma } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -12,6 +12,10 @@ function pick<T>(a: T[]): T { return a[Math.floor(Math.random() * a.length)]; }
 
 const THIS_YEAR = new Date().getFullYear();
 const LAST_YEAR = THIS_YEAR - 1;
+
+async function chunk500<T>(data: T[], fn: (c: T[]) => Promise<unknown>) {
+  for (let i = 0; i < data.length; i += 500) await fn(data.slice(i, i + 500));
+}
 
 async function main() {
   const existing = await prisma.eventRecord.count();
@@ -55,14 +59,14 @@ async function main() {
 
   await prisma.calculatedFormula.createMany({
     data: [
-      { id:'F001', name:'Live Count',          outputKey:'live_count',      description:'Active registrations for current year',     sortOrder:0, blocks:[{t:'field',v:'registration_status'},{t:'op',v:'COUNT WHERE'},{t:'cond',v:'= Active'},{t:'logic',v:'AND'},{t:'field',v:'event_year'},{t:'cmp',v:'='},{t:'val',v:String(THIS_YEAR)}] },
-      { id:'F002', name:'Paid Delegates',      outputKey:'paid_delegates',  description:'Confirmed paid attendees',                  sortOrder:1, blocks:[{t:'field',v:'payment_amount'},{t:'op',v:'COUNT WHERE'},{t:'cond',v:'> 0'},{t:'logic',v:'AND'},{t:'field',v:'payment_status'},{t:'cmp',v:'≠'},{t:'val',v:'Cancelled'}] },
-      { id:'F003', name:'Free Attendees',      outputKey:'free_attendees',  description:'Complimentary registrations',               sortOrder:2, blocks:[{t:'field',v:'ticket_type'},{t:'op',v:'COUNT WHERE'},{t:'cond',v:'= Free'},{t:'logic',v:'AND'},{t:'field',v:'registration_status'},{t:'cmp',v:'='},{t:'val',v:'Active'}] },
-      { id:'F004', name:'Cancelled Count',     outputKey:'cancelled_count', description:'Total cancelled bookings',                  sortOrder:3, blocks:[{t:'field',v:'payment_status'},{t:'op',v:'COUNT WHERE'},{t:'cond',v:'= Cancelled'}] },
-      { id:'F005', name:'YoY Comparison',      outputKey:'yoy_pct',         description:'Year-over-year percentage change',          sortOrder:4, blocks:[{t:'ref',v:'live_count'},{t:'math',v:'÷'},{t:'ref',v:'live_count_ly'},{t:'math',v:'×'},{t:'val',v:'100'},{t:'math',v:'−'},{t:'val',v:'100'}] },
-      { id:'F006', name:'33% Projection',      outputKey:'proj_33',         description:'Conservative projection at 33% velocity',  sortOrder:5, blocks:[{t:'ref',v:'live_count'},{t:'math',v:'+'},{t:'paren',v:'('},{t:'ref',v:'live_count'},{t:'math',v:'÷'},{t:'ref',v:'weeks_elapsed'},{t:'paren',v:')'},{t:'math',v:'×'},{t:'ref',v:'weeks_remaining'},{t:'math',v:'×'},{t:'val',v:'0.33'}] },
-      { id:'F007', name:'Cancellation Rate',   outputKey:'cancel_rate',     description:'Percentage of bookings cancelled',         sortOrder:6, blocks:[{t:'ref',v:'cancelled_count'},{t:'math',v:'÷'},{t:'paren',v:'('},{t:'ref',v:'paid_delegates'},{t:'math',v:'+'},{t:'ref',v:'cancelled_count'},{t:'paren',v:')'},{t:'math',v:'×'},{t:'val',v:'100'}] },
-      { id:'F008', name:'Booking Velocity 7d', outputKey:'bv_7d',           description:'Bookings in last 7 days',                  sortOrder:7, blocks:[{t:'field',v:'booking_date'},{t:'op',v:'COUNT WHERE'},{t:'cond',v:'≥ TODAY() − 7'}] },
+      { id:'F001', name:'Live Count',          outputKey:'live_count',      description:'Active registrations for current year',    sortOrder:0, blocks:[{t:'field',v:'registration_status'},{t:'op',v:'COUNT WHERE'},{t:'cond',v:'= Active'},{t:'logic',v:'AND'},{t:'field',v:'event_year'},{t:'cmp',v:'='},{t:'val',v:String(THIS_YEAR)}] },
+      { id:'F002', name:'Paid Delegates',      outputKey:'paid_delegates',  description:'Confirmed paid attendees',                 sortOrder:1, blocks:[{t:'field',v:'payment_amount'},{t:'op',v:'COUNT WHERE'},{t:'cond',v:'> 0'},{t:'logic',v:'AND'},{t:'field',v:'payment_status'},{t:'cmp',v:'≠'},{t:'val',v:'Cancelled'}] },
+      { id:'F003', name:'Free Attendees',      outputKey:'free_attendees',  description:'Complimentary registrations',              sortOrder:2, blocks:[{t:'field',v:'ticket_type'},{t:'op',v:'COUNT WHERE'},{t:'cond',v:'= Free'},{t:'logic',v:'AND'},{t:'field',v:'registration_status'},{t:'cmp',v:'='},{t:'val',v:'Active'}] },
+      { id:'F004', name:'Cancelled Count',     outputKey:'cancelled_count', description:'Total cancelled bookings',                 sortOrder:3, blocks:[{t:'field',v:'payment_status'},{t:'op',v:'COUNT WHERE'},{t:'cond',v:'= Cancelled'}] },
+      { id:'F005', name:'YoY Comparison',      outputKey:'yoy_pct',         description:'Year-over-year percentage change',         sortOrder:4, blocks:[{t:'ref',v:'live_count'},{t:'math',v:'÷'},{t:'ref',v:'live_count_ly'},{t:'math',v:'×'},{t:'val',v:'100'},{t:'math',v:'−'},{t:'val',v:'100'}] },
+      { id:'F006', name:'33% Projection',      outputKey:'proj_33',         description:'Conservative projection at 33% velocity', sortOrder:5, blocks:[{t:'ref',v:'live_count'},{t:'math',v:'+'},{t:'paren',v:'('},{t:'ref',v:'live_count'},{t:'math',v:'÷'},{t:'ref',v:'weeks_elapsed'},{t:'paren',v:')'},{t:'math',v:'×'},{t:'ref',v:'weeks_remaining'},{t:'math',v:'×'},{t:'val',v:'0.33'}] },
+      { id:'F007', name:'Cancellation Rate',   outputKey:'cancel_rate',     description:'Percentage of bookings cancelled',        sortOrder:6, blocks:[{t:'ref',v:'cancelled_count'},{t:'math',v:'÷'},{t:'paren',v:'('},{t:'ref',v:'paid_delegates'},{t:'math',v:'+'},{t:'ref',v:'cancelled_count'},{t:'paren',v:')'},{t:'math',v:'×'},{t:'val',v:'100'}] },
+      { id:'F008', name:'Booking Velocity 7d', outputKey:'bv_7d',           description:'Bookings in last 7 days',                 sortOrder:7, blocks:[{t:'field',v:'booking_date'},{t:'op',v:'COUNT WHERE'},{t:'cond',v:'≥ TODAY() − 7'}] },
     ],
   });
 
@@ -73,7 +77,6 @@ async function main() {
     ],
   });
 
-  // ─── Events + related data ───
   await prisma.telemarketingCall.deleteMany();
   await prisma.marketingActivity.deleteMany();
   await prisma.sponsor.deleteMany();
@@ -85,16 +88,14 @@ async function main() {
 
   const now = new Date();
 
-  // Collect all child records in memory, then bulk-insert per table after events are created
-  const allRegistrations: Parameters<typeof prisma.registration.createMany>[0]['data'] = [];
-  const allPayments:      Parameters<typeof prisma.payment.createMany>[0]['data']      = [];
-  const allBookings:      Parameters<typeof prisma.booking.createMany>[0]['data']      = [];
-  const allSpeakers:      Parameters<typeof prisma.speaker.createMany>[0]['data']      = [];
-  const allSponsors:      Parameters<typeof prisma.sponsor.createMany>[0]['data']      = [];
-  const allMarketing:     Parameters<typeof prisma.marketingActivity.createMany>[0]['data'] = [];
-  const allTM:            Parameters<typeof prisma.telemarketingCall.createMany>[0]['data'] = [];
-
-  const eventData: Parameters<typeof prisma.eventRecord.createMany>[0]['data'] = [];
+  const events:        Prisma.EventRecordCreateManyInput[]       = [];
+  const registrations: Prisma.RegistrationCreateManyInput[]      = [];
+  const payments:      Prisma.PaymentCreateManyInput[]           = [];
+  const bookings:      Prisma.BookingCreateManyInput[]           = [];
+  const speakers:      Prisma.SpeakerCreateManyInput[]           = [];
+  const sponsors:      Prisma.SponsorCreateManyInput[]           = [];
+  const marketing:     Prisma.MarketingActivityCreateManyInput[]  = [];
+  const tmCalls:       Prisma.TelemarketingCallCreateManyInput[]  = [];
 
   for (let i = 0; i < 80; i++) {
     const city   = CITIES[i % CITIES.length];
@@ -103,100 +104,80 @@ async function main() {
     const wo     = rand(-4, 32);
     const status = STATUSES[i % STATUSES.length];
     const rep    = REPS[i % REPS.length];
-
+    const code   = `${mo}(${day})/${city}`;
+    const expected = rand(80, 400);
     const eventDate = new Date(now.getTime() + wo * 7 * 24 * 3600 * 1000);
-    const code      = `${mo}(${day})/${city}`;
-    const expected  = rand(80, 400);
 
-    eventData.push({ eventCode: code, eventDate, eventYear: THIS_YEAR, status, rep, expected, weeksOut: wo });
+    events.push({ eventCode: code, eventDate, eventYear: THIS_YEAR, status, rep, expected, weeksOut: wo });
 
-    // Registrations (this year)
     const liveCount = Math.floor(expected * (0.15 + Math.random() * 0.95));
     const ticketTypes = ['Paid','Paid','Paid','Free','Free','Complimentary','Speaker'];
     for (let j = 0; j < liveCount; j++) {
-      const regDate = new Date(now.getTime() - rand(0, 300) * 86400000);
-      allRegistrations.push({ registrationStatus:'Active', registrationDate:regDate, ticketType:pick(ticketTypes), eventCode:code, eventYear:THIS_YEAR });
+      registrations.push({ registrationStatus:'Active', registrationDate:new Date(now.getTime()-rand(0,300)*86400000), ticketType:pick(ticketTypes), eventCode:code, eventYear:THIS_YEAR });
     }
-
-    // Registrations (last year)
     const liveCountLY = Math.floor(expected * (0.25 + Math.random() * 0.75));
     for (let j = 0; j < liveCountLY; j++) {
-      const regDate = new Date(now.getTime() - rand(300, 700) * 86400000);
-      allRegistrations.push({ registrationStatus:'Active', registrationDate:regDate, ticketType:'Paid', eventCode:code, eventYear:LAST_YEAR });
+      registrations.push({ registrationStatus:'Active', registrationDate:new Date(now.getTime()-rand(300,700)*86400000), ticketType:'Paid', eventCode:code, eventYear:LAST_YEAR });
     }
 
-    // Payments
     const paidCount = Math.floor(liveCount * (0.25 + Math.random() * 0.55));
     for (let j = 0; j < paidCount; j++) {
-      allPayments.push({ paymentAmount:rand(200,2500), paymentStatus:'Paid', paymentDate:new Date(now.getTime()-rand(0,120)*86400000), eventCode:code });
+      payments.push({ paymentAmount:rand(200,2500), paymentStatus:'Paid', paymentDate:new Date(now.getTime()-rand(0,120)*86400000), eventCode:code });
     }
-    const pendingCount = rand(0, 18);
-    for (let j = 0; j < pendingCount; j++) {
-      allPayments.push({ paymentAmount:rand(200,2500), paymentStatus:'Pending', paymentDate:new Date(now.getTime()-rand(0,30)*86400000), eventCode:code });
+    for (let j = 0; j < rand(0,18); j++) {
+      payments.push({ paymentAmount:rand(200,2500), paymentStatus:'Pending', paymentDate:new Date(now.getTime()-rand(0,30)*86400000), eventCode:code });
     }
-    const cancelledCount = rand(0, 10);
-    for (let j = 0; j < cancelledCount; j++) {
-      allPayments.push({ paymentAmount:rand(200,2500), paymentStatus:'Cancelled', paymentDate:new Date(now.getTime()-rand(0,60)*86400000), eventCode:code });
+    for (let j = 0; j < rand(0,10); j++) {
+      payments.push({ paymentAmount:rand(200,2500), paymentStatus:'Cancelled', paymentDate:new Date(now.getTime()-rand(0,60)*86400000), eventCode:code });
     }
 
-    // Bookings
-    const bookingHours = [
+    const hrs = [
       ...Array(rand(0,8)).fill(0).map(()=>rand(0,20)),
       ...Array(rand(0,10)).fill(0).map(()=>rand(24,48)),
       ...Array(rand(0,28)).fill(0).map(()=>rand(48,7*24)),
       ...Array(rand(0,32)).fill(0).map(()=>rand(7*24,14*24)),
       ...Array(rand(0,24)).fill(0).map(()=>rand(14*24,21*24)),
     ];
-    for (const h of bookingHours) {
-      allBookings.push({ bookingDate:new Date(now.getTime()-h*3600000), bookingStatus:'Confirmed', eventCode:code });
-    }
+    for (const h of hrs) bookings.push({ bookingDate:new Date(now.getTime()-h*3600000), bookingStatus:'Confirmed', eventCode:code });
 
-    // Speakers
-    const grades = ['A','B','C','Ungraded'];
-    const feeTypes = ['Paid','Paid','Free','Free','Honorarium'];
-    const spkStatuses = ['Confirmed','Confirmed','Confirmed','Pending','Standby','Declined'];
-    for (let j = 0; j < rand(2,14); j++) {
-      allSpeakers.push({ speakerStatus:pick(spkStatuses), speakerFeeType:pick(feeTypes), speakerGrade:pick(grades), eventCode:code });
-    }
+    const grades = ['A','B','C','Ungraded'], feeTypes = ['Paid','Paid','Free','Free','Honorarium'];
+    const spkSt  = ['Confirmed','Confirmed','Confirmed','Pending','Standby','Declined'];
+    for (let j = 0; j < rand(2,14); j++) speakers.push({ speakerStatus:pick(spkSt), speakerFeeType:pick(feeTypes), speakerGrade:pick(grades), eventCode:code });
 
-    // Sponsors
-    for (let j = 0; j < rand(0,3); j++) allSponsors.push({ sponsorTier:'Platinum', sponsorStatus:'Confirmed', eventCode:code });
-    for (let j = 0; j < rand(0,5); j++) allSponsors.push({ sponsorTier:'Gold',     sponsorStatus:'Confirmed', eventCode:code });
-    for (let j = 0; j < rand(0,7); j++) allSponsors.push({ sponsorTier:'Silver',   sponsorStatus:'Confirmed', eventCode:code });
+    for (let j = 0; j < rand(0,3); j++) sponsors.push({ sponsorTier:'Platinum', sponsorStatus:'Confirmed', eventCode:code });
+    for (let j = 0; j < rand(0,5); j++) sponsors.push({ sponsorTier:'Gold',     sponsorStatus:'Confirmed', eventCode:code });
+    for (let j = 0; j < rand(0,7); j++) sponsors.push({ sponsorTier:'Silver',   sponsorStatus:'Confirmed', eventCode:code });
 
-    // Marketing
-    const channels = ['Email','Email','LinkedIn','Phone','Event'];
-    for (let j = 0; j < rand(20,250); j++) {
-      allMarketing.push({ marketingReplyDate:new Date(now.getTime()-rand(0,60)*86400000), marketingChannel:pick(channels), spfScore:rand(0,5), eventCode:code });
-    }
+    const ch = ['Email','Email','LinkedIn','Phone','Event'];
+    for (let j = 0; j < rand(20,250); j++) marketing.push({ marketingReplyDate:new Date(now.getTime()-rand(0,60)*86400000), marketingChannel:pick(ch), spfScore:rand(0,5), eventCode:code });
 
-    // Telemarketing
-    const tmResults = ['Interested','Not Interested','Callback','No Answer'];
-    for (let j = 0; j < rand(0,60); j++) {
-      allTM.push({ tmCallResult:pick(tmResults), tmCallDate:new Date(now.getTime()-rand(0,30)*86400000), isMagicBlue:Math.random()>0.85, isAgendaView:Math.random()>0.5, isLhfZero:Math.random()>0.7, eventCode:code });
-    }
+    const tmR = ['Interested','Not Interested','Callback','No Answer'];
+    for (let j = 0; j < rand(0,60); j++) tmCalls.push({ tmCallResult:pick(tmR), tmCallDate:new Date(now.getTime()-rand(0,30)*86400000), isMagicBlue:Math.random()>0.85, isAgendaView:Math.random()>0.5, isLhfZero:Math.random()>0.7, eventCode:code });
   }
 
-  // Bulk insert events first (FK parent)
-  await prisma.eventRecord.createMany({ data: eventData });
-  console.log('  ✓ 80 events created');
+  await prisma.eventRecord.createMany({ data: events });
+  console.log('  ✓ 80 events');
 
-  // Bulk insert all children in parallel
-  const CHUNK = 500;
-  async function insertChunked<T>(label: string, data: T[], fn: (chunk: T[]) => Promise<unknown>) {
-    for (let i = 0; i < data.length; i += CHUNK) {
-      await fn(data.slice(i, i + CHUNK));
-    }
-    console.log(`  ✓ ${data.length} ${label} inserted`);
-  }
+  await chunk500(registrations, c => prisma.registration.createMany({ data: c }));
+  console.log(`  ✓ ${registrations.length} registrations`);
 
-  await insertChunked('registrations', allRegistrations, chunk => prisma.registration.createMany({ data: chunk }));
-  await insertChunked('payments',      allPayments,      chunk => prisma.payment.createMany({ data: chunk }));
-  await insertChunked('bookings',      allBookings,      chunk => prisma.booking.createMany({ data: chunk }));
-  await insertChunked('speakers',      allSpeakers,      chunk => prisma.speaker.createMany({ data: chunk }));
-  await insertChunked('sponsors',      allSponsors,      chunk => prisma.sponsor.createMany({ data: chunk }));
-  await insertChunked('marketing',     allMarketing,     chunk => prisma.marketingActivity.createMany({ data: chunk }));
-  await insertChunked('tm calls',      allTM,            chunk => prisma.telemarketingCall.createMany({ data: chunk }));
+  await chunk500(payments, c => prisma.payment.createMany({ data: c }));
+  console.log(`  ✓ ${payments.length} payments`);
+
+  await chunk500(bookings, c => prisma.booking.createMany({ data: c }));
+  console.log(`  ✓ ${bookings.length} bookings`);
+
+  await chunk500(speakers, c => prisma.speaker.createMany({ data: c }));
+  console.log(`  ✓ ${speakers.length} speakers`);
+
+  await chunk500(sponsors, c => prisma.sponsor.createMany({ data: c }));
+  console.log(`  ✓ ${sponsors.length} sponsors`);
+
+  await chunk500(marketing, c => prisma.marketingActivity.createMany({ data: c }));
+  console.log(`  ✓ ${marketing.length} marketing activities`);
+
+  await chunk500(tmCalls, c => prisma.telemarketingCall.createMany({ data: c }));
+  console.log(`  ✓ ${tmCalls.length} telemarketing calls`);
 
   console.log('✅ Seed complete — 80 events with full dataset');
 }
