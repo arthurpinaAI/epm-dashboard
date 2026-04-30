@@ -1,0 +1,17 @@
+node_modules/
+.next/
+out/
+build/
+
+# env
+.env
+.env.local
+.env.*.local
+
+# misc
+.DS_Store
+npm-debug.log*
+
+# Prisma
+prisma/*.db
+prisma/*.db-journal

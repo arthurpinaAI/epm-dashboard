@@ -1,0 +1,169 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Zoho-synced data tables ───
+
+model EventRecord {
+  id             Int      @id @default(autoincrement())
+  eventCode      String   @unique @map("event_code")
+  eventDate      DateTime @map("event_date")
+  eventYear      Int      @map("event_year")
+  status         String   @default("Going Ahead")
+  overrideStatus String?  @map("override_status")
+  rep            String
+  expected       Int      @default(0)
+  weeksOut       Int      @default(0) @map("weeks_out")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  registrations Registration[]
+  bookings      Booking[]
+  payments      Payment[]
+  speakers      Speaker[]
+  sponsors      Sponsor[]
+  marketing     MarketingActivity[]
+  telemarketing TelemarketingCall[]
+
+  @@map("events")
+}
+
+model Registration {
+  id                 Int      @id @default(autoincrement())
+  registrationStatus String   @map("registration_status")
+  registrationDate   DateTime @map("registration_date")
+  ticketType         String   @map("ticket_type")
+  eventCode          String   @map("event_code")
+  eventYear          Int      @map("event_year")
+  event              EventRecord @relation(fields: [eventCode], references: [eventCode], onDelete: Cascade)
+
+  @@index([eventCode])
+  @@map("registrations")
+}
+
+model Booking {
+  id            Int      @id @default(autoincrement())
+  bookingDate   DateTime @map("booking_date")
+  bookingStatus String   @map("booking_status")
+  eventCode     String   @map("event_code")
+  event         EventRecord @relation(fields: [eventCode], references: [eventCode], onDelete: Cascade)
+
+  @@index([eventCode])
+  @@map("bookings")
+}
+
+model Payment {
+  id            Int      @id @default(autoincrement())
+  paymentAmount Decimal  @map("payment_amount") @db.Decimal(10, 2)
+  paymentStatus String   @map("payment_status")
+  paymentDate   DateTime @map("payment_date")
+  eventCode     String   @map("event_code")
+  event         EventRecord @relation(fields: [eventCode], references: [eventCode], onDelete: Cascade)
+
+  @@index([eventCode])
+  @@map("payments")
+}
+
+model Speaker {
+  id             Int    @id @default(autoincrement())
+  speakerStatus  String @map("speaker_status")
+  speakerFeeType String @map("speaker_fee_type")
+  speakerGrade   String @map("speaker_grade")
+  eventCode      String @map("event_code")
+  event          EventRecord @relation(fields: [eventCode], references: [eventCode], onDelete: Cascade)
+
+  @@index([eventCode])
+  @@map("speakers")
+}
+
+model Sponsor {
+  id            Int    @id @default(autoincrement())
+  sponsorTier   String @map("sponsor_tier")
+  sponsorStatus String @map("sponsor_status")
+  eventCode     String @map("event_code")
+  event         EventRecord @relation(fields: [eventCode], references: [eventCode], onDelete: Cascade)
+
+  @@index([eventCode])
+  @@map("sponsors")
+}
+
+model MarketingActivity {
+  id                 Int      @id @default(autoincrement())
+  marketingReplyDate DateTime @map("marketing_reply_date")
+  marketingChannel   String   @map("marketing_channel")
+  spfScore           Int      @default(0) @map("spf_score")
+  eventCode          String   @map("event_code")
+  event              EventRecord @relation(fields: [eventCode], references: [eventCode], onDelete: Cascade)
+
+  @@index([eventCode])
+  @@map("marketing_activities")
+}
+
+model TelemarketingCall {
+  id           Int      @id @default(autoincrement())
+  tmCallResult String   @map("tm_call_result")
+  tmCallDate   DateTime @map("tm_call_date")
+  isMagicBlue  Boolean  @default(false) @map("is_magic_blue")
+  isAgendaView Boolean  @default(false) @map("is_agenda_view")
+  isLhfZero    Boolean  @default(false) @map("is_lhf_zero")
+  eventCode    String   @map("event_code")
+  event        EventRecord @relation(fields: [eventCode], references: [eventCode], onDelete: Cascade)
+
+  @@index([eventCode])
+  @@map("telemarketing_calls")
+}
+
+// ─── Admin configuration tables ───
+
+model RedFlagRule {
+  id             String   @id
+  name           String
+  description    String
+  severity       String   @default("medium")
+  thresholdValue Float?   @map("threshold_value")
+  gateWeeks      Int?     @map("gate_weeks")
+  isPercent      Boolean  @default(false) @map("is_percent")
+  isActive       Boolean  @default(true) @map("is_active")
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@map("red_flag_rules")
+}
+
+model CalculatedFormula {
+  id          String   @id
+  name        String
+  outputKey   String   @map("output_key")
+  description String
+  blocks      Json
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("calculated_formulas")
+}
+
+model DecisionTier {
+  level       String @id
+  flagCount   Int    @map("flag_count")
+  description String
+
+  @@map("decision_tiers")
+}
+
+model DropdownOption {
+  id        Int    @id @default(autoincrement())
+  category  String
+  value     String
+  sortOrder Int    @default(0) @map("sort_order")
+
+  @@unique([category, value])
+  @@map("dropdown_options")
+}
