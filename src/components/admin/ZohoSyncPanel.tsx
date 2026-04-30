@@ -18,14 +18,16 @@ function fmt(ms: number | null) {
 
 function fmtDate(d: Date | string | null) {
   if (!d) return '—';
-  const dt = new Date(d);
-  return dt.toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+  return new Date(d).toLocaleString('en-GB', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
 }
 
+const INGEST_URL = typeof window !== 'undefined'
+  ? `${window.location.origin}/api/ingest`
+  : '/api/ingest';
+
 export function ZohoSyncPanel() {
-  const [info, setInfo]         = useState<SyncStatusInfo | null>(null);
-  const [running, setRunning]   = useState(false);
-  const [lastResult, setResult] = useState<string | null>(null);
+  const [info, setInfo]   = useState<SyncStatusInfo | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch('/api/sync');
@@ -38,56 +40,67 @@ export function ZohoSyncPanel() {
     return () => clearInterval(id);
   }, [load]);
 
-  async function trigger(mode: 'incremental' | 'full') {
-    if (running) return;
-    setRunning(true);
-    setResult(null);
-    try {
-      const res = await fetch('/api/sync', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ mode }),
-      });
-      const data = await res.json() as { recordsSynced?: number; durationMs?: number; error?: string };
-      if (data.error) {
-        setResult(`Error: ${data.error}`);
-      } else {
-        setResult(`Done — ${data.recordsSynced} records in ${fmt(data.durationMs ?? null)}`);
-        await load();
-      }
-    } catch (e) {
-      setResult(`Network error: ${String(e)}`);
-    } finally {
-      setRunning(false);
-    }
+  function copy(text: string, key: string) {
+    navigator.clipboard.writeText(text);
+    setCopied(key);
+    setTimeout(() => setCopied(null), 1500);
   }
 
-  const btn = (label: string, mode: 'incremental' | 'full', accent = false) => (
-    <button
-      onClick={() => trigger(mode)}
-      disabled={running}
-      style={{
-        padding:       '9px 20px',
-        background:    accent ? T.accent : T.bgInset,
-        border:        `1px solid ${accent ? T.accent : T.border}`,
-        borderRadius:  8,
-        color:         accent ? '#fff' : T.text,
-        fontFamily:    T.sans,
-        fontSize:      13,
-        fontWeight:    650,
-        cursor:        running ? 'not-allowed' : 'pointer',
-        opacity:       running ? 0.6 : 1,
-        transition:    'opacity 0.15s',
-      }}
-    >
-      {running ? '⏳ Syncing…' : label}
-    </button>
+  const code = (text: string, key: string) => (
+    <div style={{ position: 'relative', marginBottom: 8 }}>
+      <pre style={{ margin: 0, padding: '10px 44px 10px 14px', background: '#0f172a', color: '#e2e8f0', borderRadius: 8, fontFamily: T.mono, fontSize: 12, overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>{text}</pre>
+      <button
+        onClick={() => copy(text, key)}
+        style={{ position: 'absolute', top: 8, right: 8, padding: '3px 8px', background: copied === key ? '#22c55e' : '#334155', border: 'none', borderRadius: 5, color: '#fff', fontFamily: T.sans, fontSize: 11, cursor: 'pointer', transition: 'background 0.2s' }}
+      >
+        {copied === key ? '✓' : 'Copy'}
+      </button>
+    </div>
   );
+
+  const gasSnippet = `// ─── Add to your GAS script ───────────────────────────────────
+const EPM_INGEST_URL = '${INGEST_URL}';
+
+function pushToEPM_(headers, rows) {
+  const apiKey = PropertiesService.getScriptProperties()
+                   .getProperty('EPM_API_KEY');
+  if (!apiKey) { Logger.log('EPM_API_KEY not set in Script Properties'); return; }
+
+  const records = rows.map(row => {
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = row[i] ?? ''; });
+    return obj;
+  });
+
+  const CHUNK = 500;
+  let total = 0;
+  for (let i = 0; i < records.length; i += CHUNK) {
+    const res = UrlFetchApp.fetch(EPM_INGEST_URL, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify({ records: records.slice(i, i + CHUNK) }),
+      headers: { Authorization: 'Bearer ' + apiKey },
+      muteHttpExceptions: true,
+    });
+    if (res.getResponseCode() < 300) {
+      total += JSON.parse(res.getContentText()).upserted || 0;
+    } else {
+      Logger.log('EPM ingest error: ' + res.getContentText());
+    }
+  }
+  Logger.log('EPM: pushed ' + total + ' records to database');
+}
+
+// ─── In runSmartSync(), after fetchCreatorCsvRaw_() returns, add: ───
+// pushToEPM_(csvHeaders, csvRows);
+
+// ─── In pullCreatorReportFresh(), after each sheet write, add: ───
+// pushToEPM_(masterHeaders, buffer);`;
 
   return (
     <div>
       {/* Status bar */}
-      <div style={{ display: 'flex', gap: 20, marginBottom: 28, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', gap: 16, marginBottom: 28, flexWrap: 'wrap' }}>
         <div style={{ padding: '16px 20px', background: T.bgInset, border: `1px solid ${T.border}`, borderRadius: 12, minWidth: 160 }}>
           <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textDim, fontWeight: 600, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>Last Sync</div>
           <div style={{ fontFamily: T.mono, fontSize: 13, color: T.text }}>{info?.lastSyncTime ?? '—'}</div>
@@ -96,37 +109,56 @@ export function ZohoSyncPanel() {
           <div style={{ fontFamily: T.sans, fontSize: 11, color: T.textDim, fontWeight: 600, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>Raw Records</div>
           <div style={{ fontFamily: T.mono, fontSize: 20, color: T.text, fontWeight: 700 }}>{info?.rawCount?.toLocaleString() ?? '—'}</div>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginLeft: 'auto' }}>
-          {btn('▶ Incremental Sync', 'incremental', true)}
-          {btn('↺ Full Rebuild', 'full')}
+      </div>
+
+      {/* Setup instructions */}
+      <div style={{ padding: '20px 24px', background: T.bgInset, border: `1px solid ${T.border}`, borderRadius: 12, marginBottom: 24 }}>
+        <h4 style={{ fontFamily: T.sans, fontSize: 13, fontWeight: 700, color: T.text, margin: '0 0 4px' }}>
+          How it works
+        </h4>
+        <p style={{ fontFamily: T.sans, fontSize: 12, color: T.textDim, margin: '0 0 20px', lineHeight: 1.6 }}>
+          Your Google Apps Script already fetches from Zoho perfectly. Add ~20 lines to push each batch to this endpoint — no Zoho credentials needed in Vercel.
+        </p>
+
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontFamily: T.sans, fontSize: 11, fontWeight: 700, color: T.textDim, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>
+            Step 1 — Set INGEST_API_KEY in Vercel env vars
+          </div>
+          <p style={{ fontFamily: T.sans, fontSize: 12, color: T.textDim, margin: '0 0 6px' }}>
+            Generate any random secret (e.g. <code style={{ fontFamily: T.mono, background: '#0f172a22', padding: '1px 4px', borderRadius: 3 }}>openssl rand -hex 32</code>) and add it as <strong>INGEST_API_KEY</strong> in Vercel → Project → Settings → Environment Variables.
+          </p>
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontFamily: T.sans, fontSize: 11, fontWeight: 700, color: T.textDim, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>
+            Step 2 — Set EPM_API_KEY in GAS Script Properties
+          </div>
+          <p style={{ fontFamily: T.sans, fontSize: 12, color: T.textDim, margin: '0 0 6px' }}>
+            In your GAS editor → Project Settings → Script Properties → add <strong>EPM_API_KEY</strong> with the same secret.
+          </p>
+        </div>
+
+        <div>
+          <div style={{ fontFamily: T.sans, fontSize: 11, fontWeight: 700, color: T.textDim, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>
+            Step 3 — Add this to your GAS script
+          </div>
+          {code(gasSnippet, 'gas')}
+          <p style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, margin: '4px 0 0' }}>
+            Call <code style={{ fontFamily: T.mono }}>pushToEPM_(csvHeaders, csvRows)</code> in <code style={{ fontFamily: T.mono }}>runSmartSync()</code> and <code style={{ fontFamily: T.mono }}>pullCreatorReportFresh()</code> after each fetch batch. The GAS handles all Zoho auth — this endpoint just receives and stores the records.
+          </p>
         </div>
       </div>
 
-      {lastResult && (
-        <div style={{ padding: '10px 16px', marginBottom: 20, background: lastResult.startsWith('Error') ? '#fef2f2' : '#f0fdf4', border: `1px solid ${lastResult.startsWith('Error') ? '#fecaca' : '#bbf7d0'}`, borderRadius: 8, fontFamily: T.mono, fontSize: 12, color: lastResult.startsWith('Error') ? T.critical : '#166534' }}>
-          {lastResult}
-        </div>
-      )}
-
-      {/* Env var checklist */}
+      {/* Ingest endpoint */}
       <div style={{ marginBottom: 24 }}>
-        <h4 style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 700, color: T.text, marginBottom: 10 }}>Required Environment Variables</h4>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {['ZOHO_CLIENT_ID','ZOHO_CLIENT_SECRET','ZOHO_REFRESH_TOKEN','ZOHO_DC','CREATOR_OWNER','CREATOR_APP'].map(v => (
-            <span key={v} style={{ padding: '4px 10px', background: T.bgInset, border: `1px solid ${T.border}`, borderRadius: 6, fontFamily: T.mono, fontSize: 11, color: T.textDim }}>
-              {v}
-            </span>
-          ))}
-        </div>
-        <p style={{ fontFamily: T.sans, fontSize: 11, color: T.textFaint, marginTop: 8 }}>
-          Set these in Vercel → Project → Settings → Environment Variables. Cron runs every 15 min automatically.
-        </p>
+        <div style={{ fontFamily: T.sans, fontSize: 11, fontWeight: 700, color: T.textDim, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Ingest Endpoint</div>
+        {code(`POST ${INGEST_URL}\nAuthorization: Bearer <INGEST_API_KEY>\nContent-Type: application/json\n\n{ "records": [{ "Record ID": "...", "Modified_Time": "...", ...allFields }] }`, 'url')}
       </div>
 
       {/* Sync log table */}
       <h4 style={{ fontFamily: T.sans, fontSize: 12, fontWeight: 700, color: T.text, marginBottom: 10 }}>Recent Sync Runs</h4>
       {!info || info.logs.length === 0 ? (
-        <p style={{ fontFamily: T.sans, fontSize: 13, color: T.textDim }}>No sync runs yet.</p>
+        <p style={{ fontFamily: T.sans, fontSize: 13, color: T.textDim }}>No sync runs yet — configure your GAS to start pushing data.</p>
       ) : (
         <div style={{ border: `1px solid ${T.border}`, borderRadius: 10, overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
