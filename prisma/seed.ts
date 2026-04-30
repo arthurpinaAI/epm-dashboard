@@ -14,7 +14,6 @@ const THIS_YEAR = new Date().getFullYear();
 const LAST_YEAR = THIS_YEAR - 1;
 
 async function main() {
-  // Skip if already seeded (idempotent — safe to run on every deploy)
   const existing = await prisma.eventRecord.count();
   if (existing > 0) {
     console.log(`⏭  Seed skipped — ${existing} events already in database`);
@@ -23,7 +22,6 @@ async function main() {
 
   console.log('🌱 Seeding EPM database…');
 
-  // ─── Admin config ───
   await prisma.redFlagRule.deleteMany();
   await prisma.calculatedFormula.deleteMany();
   await prisma.decisionTier.deleteMany();
@@ -39,19 +37,19 @@ async function main() {
 
   await prisma.redFlagRule.createMany({
     data: [
-      { id:'RF001', name:'Agenda Not Live',          description:'Agenda has not been published yet',          severity:'high',     thresholdValue:null, gateWeeks:null, isPercent:false, isActive:true, sortOrder:0  },
-      { id:'RF002', name:'Underperforming vs LY',    description:'Live count below last year at same point',   severity:'medium',   thresholdValue:null, gateWeeks:null, isPercent:false, isActive:true, sortOrder:1  },
-      { id:'RF003', name:'Payments Below Minimum',   description:'Paid head count below threshold within gate',severity:'critical', thresholdValue:20,   gateWeeks:12,   isPercent:false, isActive:true, sortOrder:2  },
-      { id:'RF004', name:'Delegates Below 40%',      description:'Live count below % of expected within gate', severity:'critical', thresholdValue:40,   gateWeeks:12,   isPercent:true,  isActive:true, sortOrder:3  },
-      { id:'RF005', name:'Agenda Not Full',          description:'Unfilled speaker/panel slots',               severity:'medium',   thresholdValue:null, gateWeeks:null, isPercent:false, isActive:true, sortOrder:4  },
-      { id:'RF006', name:'SpEx Below Minimum',       description:'Sponsor-exhibitor count below threshold',    severity:'high',     thresholdValue:2,    gateWeeks:12,   isPercent:false, isActive:true, sortOrder:5  },
-      { id:'RF007', name:'Zero Bookings (6w gate)',  description:'No bookings in last 7d inside 6-week gate',  severity:'critical', thresholdValue:0,    gateWeeks:6,    isPercent:false, isActive:true, sortOrder:6  },
-      { id:'RF008', name:'Zero Payments (4w gate)',  description:'No payments in last 7d inside 4-week gate',  severity:'critical', thresholdValue:0,    gateWeeks:4,    isPercent:false, isActive:true, sortOrder:7  },
-      { id:'RF009', name:'High Pending Payments',    description:'Pending payments exceed threshold',          severity:'medium',   thresholdValue:10,   gateWeeks:null, isPercent:false, isActive:true, sortOrder:8  },
-      { id:'RF010', name:'High Cancellation Rate',   description:'Cancel rate exceeds % threshold',            severity:'high',     thresholdValue:20,   gateWeeks:null, isPercent:true,  isActive:true, sortOrder:9  },
-      { id:'RF011', name:'No Marketing Activity',    description:'Zero marketing replies within gate',         severity:'medium',   thresholdValue:0,    gateWeeks:8,    isPercent:false, isActive:true, sortOrder:10 },
-      { id:'RF012', name:'Booking Velocity Declining',description:'This week < half of prior week',            severity:'medium',   thresholdValue:50,   gateWeeks:null, isPercent:true,  isActive:true, sortOrder:11 },
-      { id:'RF013', name:'Benchmark Not Crossed',    description:'Payment benchmark not hit inside gate',      severity:'critical', thresholdValue:30,   gateWeeks:6,    isPercent:false, isActive:true, sortOrder:12 },
+      { id:'RF001', name:'Agenda Not Live',           description:'Agenda has not been published yet',          severity:'high',     thresholdValue:null, gateWeeks:null, isPercent:false, isActive:true, sortOrder:0  },
+      { id:'RF002', name:'Underperforming vs LY',     description:'Live count below last year at same point',   severity:'medium',   thresholdValue:null, gateWeeks:null, isPercent:false, isActive:true, sortOrder:1  },
+      { id:'RF003', name:'Payments Below Minimum',    description:'Paid head count below threshold within gate',severity:'critical', thresholdValue:20,   gateWeeks:12,   isPercent:false, isActive:true, sortOrder:2  },
+      { id:'RF004', name:'Delegates Below 40%',       description:'Live count below % of expected within gate', severity:'critical', thresholdValue:40,   gateWeeks:12,   isPercent:true,  isActive:true, sortOrder:3  },
+      { id:'RF005', name:'Agenda Not Full',           description:'Unfilled speaker/panel slots',               severity:'medium',   thresholdValue:null, gateWeeks:null, isPercent:false, isActive:true, sortOrder:4  },
+      { id:'RF006', name:'SpEx Below Minimum',        description:'Sponsor-exhibitor count below threshold',    severity:'high',     thresholdValue:2,    gateWeeks:12,   isPercent:false, isActive:true, sortOrder:5  },
+      { id:'RF007', name:'Zero Bookings (6w gate)',   description:'No bookings in last 7d inside 6-week gate',  severity:'critical', thresholdValue:0,    gateWeeks:6,    isPercent:false, isActive:true, sortOrder:6  },
+      { id:'RF008', name:'Zero Payments (4w gate)',   description:'No payments in last 7d inside 4-week gate',  severity:'critical', thresholdValue:0,    gateWeeks:4,    isPercent:false, isActive:true, sortOrder:7  },
+      { id:'RF009', name:'High Pending Payments',     description:'Pending payments exceed threshold',          severity:'medium',   thresholdValue:10,   gateWeeks:null, isPercent:false, isActive:true, sortOrder:8  },
+      { id:'RF010', name:'High Cancellation Rate',    description:'Cancel rate exceeds % threshold',            severity:'high',     thresholdValue:20,   gateWeeks:null, isPercent:true,  isActive:true, sortOrder:9  },
+      { id:'RF011', name:'No Marketing Activity',     description:'Zero marketing replies within gate',         severity:'medium',   thresholdValue:0,    gateWeeks:8,    isPercent:false, isActive:true, sortOrder:10 },
+      { id:'RF012', name:'Booking Velocity Declining',description:'This week < half of prior week',             severity:'medium',   thresholdValue:50,   gateWeeks:null, isPercent:true,  isActive:true, sortOrder:11 },
+      { id:'RF013', name:'Benchmark Not Crossed',     description:'Payment benchmark not hit inside gate',      severity:'critical', thresholdValue:30,   gateWeeks:6,    isPercent:false, isActive:true, sortOrder:12 },
     ],
   });
 
@@ -87,182 +85,118 @@ async function main() {
 
   const now = new Date();
 
+  // Collect all child records in memory, then bulk-insert per table after events are created
+  const allRegistrations: Parameters<typeof prisma.registration.createMany>[0]['data'] = [];
+  const allPayments:      Parameters<typeof prisma.payment.createMany>[0]['data']      = [];
+  const allBookings:      Parameters<typeof prisma.booking.createMany>[0]['data']      = [];
+  const allSpeakers:      Parameters<typeof prisma.speaker.createMany>[0]['data']      = [];
+  const allSponsors:      Parameters<typeof prisma.sponsor.createMany>[0]['data']      = [];
+  const allMarketing:     Parameters<typeof prisma.marketingActivity.createMany>[0]['data'] = [];
+  const allTM:            Parameters<typeof prisma.telemarketingCall.createMany>[0]['data'] = [];
+
+  const eventData: Parameters<typeof prisma.eventRecord.createMany>[0]['data'] = [];
+
   for (let i = 0; i < 80; i++) {
-    const city  = CITIES[i % CITIES.length];
-    const mo    = MONTHS[(i * 3 + 1) % 12];
-    const day   = (i % 28) + 1;
-    const wo    = rand(-4, 32);
+    const city   = CITIES[i % CITIES.length];
+    const mo     = MONTHS[(i * 3 + 1) % 12];
+    const day    = (i % 28) + 1;
+    const wo     = rand(-4, 32);
     const status = STATUSES[i % STATUSES.length];
     const rep    = REPS[i % REPS.length];
 
     const eventDate = new Date(now.getTime() + wo * 7 * 24 * 3600 * 1000);
-    const code = `${mo}(${day})/${city}`;
+    const code      = `${mo}(${day})/${city}`;
+    const expected  = rand(80, 400);
 
-    const expected = rand(80, 400);
+    eventData.push({ eventCode: code, eventDate, eventYear: THIS_YEAR, status, rep, expected, weeksOut: wo });
 
-    const event = await prisma.eventRecord.create({
-      data: {
-        eventCode: code,
-        eventDate,
-        eventYear: THIS_YEAR,
-        status,
-        rep,
-        expected,
-        weeksOut: wo,
-      },
-    });
-
-    // ─── Registrations (this year) ───
+    // Registrations (this year)
     const liveCount = Math.floor(expected * (0.15 + Math.random() * 0.95));
+    const ticketTypes = ['Paid','Paid','Paid','Free','Free','Complimentary','Speaker'];
     for (let j = 0; j < liveCount; j++) {
-      const daysAgo = rand(0, 300);
-      const regDate = new Date(now.getTime() - daysAgo * 86400000);
-      const ticketTypes = ['Paid','Paid','Paid','Free','Free','Complimentary','Speaker'];
-      await prisma.registration.create({
-        data: {
-          registrationStatus: 'Active',
-          registrationDate: regDate,
-          ticketType: pick(ticketTypes),
-          eventCode: code,
-          eventYear: THIS_YEAR,
-        },
-      });
+      const regDate = new Date(now.getTime() - rand(0, 300) * 86400000);
+      allRegistrations.push({ registrationStatus:'Active', registrationDate:regDate, ticketType:pick(ticketTypes), eventCode:code, eventYear:THIS_YEAR });
     }
 
-    // ─── Registrations (last year) ───
+    // Registrations (last year)
     const liveCountLY = Math.floor(expected * (0.25 + Math.random() * 0.75));
     for (let j = 0; j < liveCountLY; j++) {
-      const daysAgo = rand(300, 700);
-      const regDate = new Date(now.getTime() - daysAgo * 86400000);
-      await prisma.registration.create({
-        data: {
-          registrationStatus: 'Active',
-          registrationDate: regDate,
-          ticketType: 'Paid',
-          eventCode: code,
-          eventYear: LAST_YEAR,
-        },
-      });
+      const regDate = new Date(now.getTime() - rand(300, 700) * 86400000);
+      allRegistrations.push({ registrationStatus:'Active', registrationDate:regDate, ticketType:'Paid', eventCode:code, eventYear:LAST_YEAR });
     }
 
-    // ─── Payments ───
+    // Payments
     const paidCount = Math.floor(liveCount * (0.25 + Math.random() * 0.55));
     for (let j = 0; j < paidCount; j++) {
-      const daysAgo = rand(0, 120);
-      await prisma.payment.create({
-        data: {
-          paymentAmount: rand(200, 2500),
-          paymentStatus: 'Paid',
-          paymentDate: new Date(now.getTime() - daysAgo * 86400000),
-          eventCode: code,
-        },
-      });
+      allPayments.push({ paymentAmount:rand(200,2500), paymentStatus:'Paid', paymentDate:new Date(now.getTime()-rand(0,120)*86400000), eventCode:code });
     }
     const pendingCount = rand(0, 18);
     for (let j = 0; j < pendingCount; j++) {
-      await prisma.payment.create({
-        data: {
-          paymentAmount: rand(200, 2500),
-          paymentStatus: 'Pending',
-          paymentDate: new Date(now.getTime() - rand(0, 30) * 86400000),
-          eventCode: code,
-        },
-      });
+      allPayments.push({ paymentAmount:rand(200,2500), paymentStatus:'Pending', paymentDate:new Date(now.getTime()-rand(0,30)*86400000), eventCode:code });
     }
     const cancelledCount = rand(0, 10);
     for (let j = 0; j < cancelledCount; j++) {
-      await prisma.payment.create({
-        data: {
-          paymentAmount: rand(200, 2500),
-          paymentStatus: 'Cancelled',
-          paymentDate: new Date(now.getTime() - rand(0, 60) * 86400000),
-          eventCode: code,
-        },
-      });
+      allPayments.push({ paymentAmount:rand(200,2500), paymentStatus:'Cancelled', paymentDate:new Date(now.getTime()-rand(0,60)*86400000), eventCode:code });
     }
 
-    // ─── Bookings ───
-    const bookingsToday     = rand(0, 8);
-    const bookingsYesterday = rand(0, 10);
-    const bookings7d        = rand(0, 28);
-    const bookings14d       = rand(0, 32);
-    const bookings21d       = rand(0, 24);
-
-    const bookingDist = [
-      ...Array(bookingsToday).fill(rand(0, 20)),
-      ...Array(bookingsYesterday).fill(rand(24, 48)),
-      ...Array(bookings7d).fill(rand(48, 7 * 24)),
-      ...Array(bookings14d).fill(rand(7 * 24, 14 * 24)),
-      ...Array(bookings21d).fill(rand(14 * 24, 21 * 24)),
+    // Bookings
+    const bookingHours = [
+      ...Array(rand(0,8)).fill(0).map(()=>rand(0,20)),
+      ...Array(rand(0,10)).fill(0).map(()=>rand(24,48)),
+      ...Array(rand(0,28)).fill(0).map(()=>rand(48,7*24)),
+      ...Array(rand(0,32)).fill(0).map(()=>rand(7*24,14*24)),
+      ...Array(rand(0,24)).fill(0).map(()=>rand(14*24,21*24)),
     ];
-
-    for (const hoursAgo of bookingDist) {
-      await prisma.booking.create({
-        data: {
-          bookingDate: new Date(now.getTime() - hoursAgo * 3600000),
-          bookingStatus: 'Confirmed',
-          eventCode: code,
-        },
-      });
+    for (const h of bookingHours) {
+      allBookings.push({ bookingDate:new Date(now.getTime()-h*3600000), bookingStatus:'Confirmed', eventCode:code });
     }
 
-    // ─── Speakers ───
-    const numSpeakers = rand(2, 14);
+    // Speakers
     const grades = ['A','B','C','Ungraded'];
     const feeTypes = ['Paid','Paid','Free','Free','Honorarium'];
     const spkStatuses = ['Confirmed','Confirmed','Confirmed','Pending','Standby','Declined'];
-    for (let j = 0; j < numSpeakers; j++) {
-      await prisma.speaker.create({
-        data: {
-          speakerStatus: pick(spkStatuses),
-          speakerFeeType: pick(feeTypes),
-          speakerGrade: pick(grades),
-          eventCode: code,
-        },
-      });
+    for (let j = 0; j < rand(2,14); j++) {
+      allSpeakers.push({ speakerStatus:pick(spkStatuses), speakerFeeType:pick(feeTypes), speakerGrade:pick(grades), eventCode:code });
     }
 
-    // ─── Sponsors ───
-    const plt = rand(0, 3);
-    const gld = rand(0, 5);
-    const slv = rand(0, 7);
-    for (let j = 0; j < plt; j++) await prisma.sponsor.create({ data: { sponsorTier:'Platinum', sponsorStatus:'Confirmed', eventCode:code } });
-    for (let j = 0; j < gld; j++) await prisma.sponsor.create({ data: { sponsorTier:'Gold',     sponsorStatus:'Confirmed', eventCode:code } });
-    for (let j = 0; j < slv; j++) await prisma.sponsor.create({ data: { sponsorTier:'Silver',   sponsorStatus:'Confirmed', eventCode:code } });
+    // Sponsors
+    for (let j = 0; j < rand(0,3); j++) allSponsors.push({ sponsorTier:'Platinum', sponsorStatus:'Confirmed', eventCode:code });
+    for (let j = 0; j < rand(0,5); j++) allSponsors.push({ sponsorTier:'Gold',     sponsorStatus:'Confirmed', eventCode:code });
+    for (let j = 0; j < rand(0,7); j++) allSponsors.push({ sponsorTier:'Silver',   sponsorStatus:'Confirmed', eventCode:code });
 
-    // ─── Marketing ───
-    const mktAll = rand(20, 250);
+    // Marketing
     const channels = ['Email','Email','LinkedIn','Phone','Event'];
-    for (let j = 0; j < mktAll; j++) {
-      const daysAgo = rand(0, 60);
-      await prisma.marketingActivity.create({
-        data: {
-          marketingReplyDate: new Date(now.getTime() - daysAgo * 86400000),
-          marketingChannel: pick(channels),
-          spfScore: rand(0, 5),
-          eventCode: code,
-        },
-      });
+    for (let j = 0; j < rand(20,250); j++) {
+      allMarketing.push({ marketingReplyDate:new Date(now.getTime()-rand(0,60)*86400000), marketingChannel:pick(channels), spfScore:rand(0,5), eventCode:code });
     }
 
-    // ─── Telemarketing ───
-    const tmCalled = rand(0, 60);
+    // Telemarketing
     const tmResults = ['Interested','Not Interested','Callback','No Answer'];
-    for (let j = 0; j < tmCalled; j++) {
-      await prisma.telemarketingCall.create({
-        data: {
-          tmCallResult: pick(tmResults),
-          tmCallDate: new Date(now.getTime() - rand(0, 30) * 86400000),
-          isMagicBlue: Math.random() > 0.85,
-          isAgendaView: Math.random() > 0.5,
-          isLhfZero: Math.random() > 0.7,
-          eventCode: code,
-        },
-      });
+    for (let j = 0; j < rand(0,60); j++) {
+      allTM.push({ tmCallResult:pick(tmResults), tmCallDate:new Date(now.getTime()-rand(0,30)*86400000), isMagicBlue:Math.random()>0.85, isAgendaView:Math.random()>0.5, isLhfZero:Math.random()>0.7, eventCode:code });
     }
-
-    if ((i + 1) % 10 === 0) console.log(`  ✓ ${i + 1}/80 events seeded`);
   }
+
+  // Bulk insert events first (FK parent)
+  await prisma.eventRecord.createMany({ data: eventData });
+  console.log('  ✓ 80 events created');
+
+  // Bulk insert all children in parallel
+  const CHUNK = 500;
+  async function insertChunked<T>(label: string, data: T[], fn: (chunk: T[]) => Promise<unknown>) {
+    for (let i = 0; i < data.length; i += CHUNK) {
+      await fn(data.slice(i, i + CHUNK));
+    }
+    console.log(`  ✓ ${data.length} ${label} inserted`);
+  }
+
+  await insertChunked('registrations', allRegistrations, chunk => prisma.registration.createMany({ data: chunk }));
+  await insertChunked('payments',      allPayments,      chunk => prisma.payment.createMany({ data: chunk }));
+  await insertChunked('bookings',      allBookings,      chunk => prisma.booking.createMany({ data: chunk }));
+  await insertChunked('speakers',      allSpeakers,      chunk => prisma.speaker.createMany({ data: chunk }));
+  await insertChunked('sponsors',      allSponsors,      chunk => prisma.sponsor.createMany({ data: chunk }));
+  await insertChunked('marketing',     allMarketing,     chunk => prisma.marketingActivity.createMany({ data: chunk }));
+  await insertChunked('tm calls',      allTM,            chunk => prisma.telemarketingCall.createMany({ data: chunk }));
 
   console.log('✅ Seed complete — 80 events with full dataset');
 }
