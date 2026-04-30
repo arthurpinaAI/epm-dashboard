@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EPM — Event Health Engine</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body, #root { height: 100%; }
+    body { background: #080c14; color: #e1e4e8; font-family: 'Outfit', sans-serif; overflow-x: hidden; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #080c14; }
+    ::-webkit-scrollbar-thumb { background: #1e2a3a; border-radius: 3px; }
+    ::selection { background: #00E67633; }
+    input:focus, select:focus { outline: 1px solid #2a4a6a; }
+    option { background: #0d1320; color: #e1e4e8; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+    button { border: none; }
+  </style>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+  <script type="text/babel" src="epm-data.jsx"></script>
+  <script type="text/babel" src="epm-fleet.jsx"></script>
+  <script type="text/babel" src="epm-detail.jsx"></script>
+  <script type="text/babel" src="epm-admin.jsx"></script>
+
+  <script type="text/babel">
+    const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+      "accentHue": 145,
+      "cardRadius": 10,
+      "density": "normal"
+    }/*EDITMODE-END*/;
+
+    const App = () => {
+      const [view, setView] = React.useState('fleet');
+      const [selectedEvent, setSelectedEvent] = React.useState(null);
+      const [events] = React.useState(window.MOCK_EVENTS || []);
+      const [tweaks, setTweaksState] = React.useState(TWEAK_DEFAULTS);
+      const setTweak = (k, v) => setTweaksState(prev => ({...prev, [k]: v}));
+
+      const navItems = [
+        { id: 'fleet', label: 'Fleet View', icon: '◫' },
+        { id: 'admin', label: 'Admin', icon: '⚙' },
+      ];
+
+      const handleSelectEvent = (evt) => { setSelectedEvent(evt); setView('detail'); };
+      const handleBack = () => { setSelectedEvent(null); setView('fleet'); };
+
+      // Summary stats
+      const critical = events.filter(e => e.recommendation === 'CRITICAL').length;
+      const escalate = events.filter(e => e.recommendation === 'ESCALATE').length;
+      const totalFlags = events.reduce((s, e) => s + e.redFlagCount, 0);
+
+      const navStyle = (active) => ({
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '8px 16px', borderRadius: 6, cursor: 'pointer',
+        background: active ? '#1e2a3a' : 'transparent',
+        color: active ? '#e1e4e8' : '#586374',
+        fontFamily: 'Outfit', fontSize: 13, fontWeight: active ? 600 : 400,
+        border: 'none', transition: 'all 0.12s',
+      });
+
+      return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', height: '100vh' } },
+        // Top bar
+        React.createElement('header', {
+          style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 32px', height: 56, borderBottom: '1px solid #1e2a3a', flexShrink: 0 }
+        },
+          React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 20 } },
+            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+              React.createElement('div', { style: { width: 28, height: 28, borderRadius: 6, background: 'linear-gradient(135deg, #00E676, #00B0FF)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color: '#080c14' } }, 'E'),
+              React.createElement('span', { style: { fontFamily: 'Outfit', fontWeight: 700, fontSize: 15, color: '#e1e4e8', letterSpacing: -0.3 } }, 'EPM'),
+              React.createElement('span', { style: { fontFamily: 'Outfit', fontWeight: 400, fontSize: 11, color: '#586374', marginLeft: -4 } }, 'Event Health Engine'),
+            ),
+            React.createElement('div', { style: { width: 1, height: 24, background: '#1e2a3a' } }),
+            ...navItems.map(n =>
+              React.createElement('button', {
+                key: n.id, onClick: () => { setView(n.id); if (n.id !== 'detail') setSelectedEvent(null); },
+                style: navStyle(view === n.id || (n.id === 'fleet' && view === 'detail'))
+              }, React.createElement('span', { style: { fontSize: 15 } }, n.icon), n.label)
+            ),
+          ),
+          // Right side stats
+          React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 20 } },
+            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+              React.createElement('span', { style: { fontFamily: 'JetBrains Mono', fontSize: 18, fontWeight: 700, color: critical > 0 ? '#FF1744' : '#2d6b3f' } }, critical),
+              React.createElement('span', { style: { fontFamily: 'Outfit', fontSize: 11, color: '#586374' } }, 'critical')
+            ),
+            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+              React.createElement('span', { style: { fontFamily: 'JetBrains Mono', fontSize: 18, fontWeight: 700, color: escalate > 0 ? '#FF6E40' : '#2d6b3f' } }, escalate),
+              React.createElement('span', { style: { fontFamily: 'Outfit', fontSize: 11, color: '#586374' } }, 'escalate')
+            ),
+            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+              React.createElement('span', { style: { fontFamily: 'JetBrains Mono', fontSize: 18, fontWeight: 700, color: '#8892a4' } }, totalFlags),
+              React.createElement('span', { style: { fontFamily: 'Outfit', fontSize: 11, color: '#586374' } }, 'flags')
+            ),
+            React.createElement('div', { style: { width: 8, height: 8, borderRadius: '50%', background: '#00E676', boxShadow: '0 0 8px #00E67666' } }),
+            React.createElement('span', { style: { fontFamily: 'Outfit', fontSize: 11, color: '#586374' } }, 'Live'),
+          )
+        ),
+
+        // Content
+        React.createElement('main', { style: { flex: 1, overflow: 'auto', paddingTop: 24 } },
+          view === 'fleet' && React.createElement(FleetView, { events, onSelectEvent: handleSelectEvent }),
+          view === 'detail' && selectedEvent && React.createElement(EventDetail, { evt: selectedEvent, onBack: handleBack }),
+          view === 'admin' && React.createElement(AdminPanel, null),
+        ),
+
+        // Tweaks
+        typeof TweaksPanel !== 'undefined' && React.createElement(TweaksPanel, { title: 'Tweaks' },
+          React.createElement(TweakSection, { label: 'Display' },
+            React.createElement(TweakRadio, { label: 'Density', value: tweaks.density, options: ['compact', 'normal', 'relaxed'], onChange: v => setTweak('density', v) }),
+            React.createElement(TweakSlider, { label: 'Card Radius', value: tweaks.cardRadius, min: 0, max: 20, step: 1, onChange: v => setTweak('cardRadius', v) }),
+          ),
+        ),
+      );
+    };
+
+    ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+  </script>
+</body>
+</html>

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EPM — Event Health Engine</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Space+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body, #root { height: 100%; }
+    body { background: #06080e; color: #e8ecf4; font-family: 'Space Grotesk', sans-serif; overflow-x: hidden; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #1a2440; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #243052; }
+    ::selection { background: #3b82f633; }
+    input:focus, select:focus { outline: 1px solid #3b82f650; outline-offset: -1px; }
+    option { background: #0a0f1a; color: #e8ecf4; }
+    button { border: none; font-family: inherit; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes pulse { 0% { box-shadow: 0 0 0 0 currentColor; } 70% { box-shadow: 0 0 0 6px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+    @keyframes scanline { 0% { transform: translateY(-100%); } 100% { transform: translateY(100vh); } }
+  </style>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" src="v2/data.jsx"></script>
+  <script type="text/babel" src="v2/ui.jsx"></script>
+  <script type="text/babel" src="v2/fleet.jsx"></script>
+  <script type="text/babel" src="v2/detail.jsx"></script>
+  <script type="text/babel" src="v2/admin.jsx"></script>
+
+  <script type="text/babel">
+    const App = () => {
+      const [view, setView] = React.useState('fleet');
+      const [selectedEvt, setSelectedEvt] = React.useState(null);
+      const [events] = React.useState(window.EVENTS || []);
+      const [time, setTime] = React.useState(new Date());
+
+      React.useEffect(() => { const t = setInterval(() => setTime(new Date()), 60000); return () => clearInterval(t); }, []);
+
+      const crit = events.filter(e => e.rec === 'CRITICAL').length;
+      const esc = events.filter(e => e.rec === 'ESCALATE').length;
+      const watch = events.filter(e => e.rec === 'WATCH' || e.rec.startsWith('GO')).length;
+      const totalFlags = events.reduce((s, e) => s + e.flagCount, 0);
+
+      const goDetail = (evt) => { setSelectedEvt(evt); setView('detail'); };
+      const goFleet = () => { setSelectedEvt(null); setView('fleet'); };
+
+      const navBtn = (id, icon, label, isActive) => React.createElement('button', {
+        onClick: () => { setView(id); if (id !== 'detail') setSelectedEvt(null); },
+        style: { display: 'flex', alignItems: 'center', gap: 8, padding: '7px 16px', borderRadius: 7, cursor: 'pointer', background: isActive ? '#1a244040' : 'transparent', color: isActive ? '#e8ecf4' : '#4a5570', fontFamily: "'Space Grotesk'", fontSize: 12, fontWeight: isActive ? 700 : 500, transition: 'all 0.15s', border: isActive ? '1px solid #1a2440' : '1px solid transparent', letterSpacing: 0.2 },
+        onMouseEnter: e => { if (!isActive) e.currentTarget.style.color = '#8b95ad'; },
+        onMouseLeave: e => { if (!isActive) e.currentTarget.style.color = '#4a5570'; },
+      }, React.createElement('span', { style: { fontSize: 14 } }, icon), label);
+
+      const statChip = (val, label, color) => React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+        React.createElement('span', { style: { fontFamily: "'JetBrains Mono'", fontSize: 17, fontWeight: 700, color: val > 0 ? color : '#1a3a2a' } }, val),
+        React.createElement('span', { style: { fontFamily: "'Space Grotesk'", fontSize: 10, color: '#4a5570', letterSpacing: 0.5 } }, label),
+      );
+
+      return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', height: '100vh', position: 'relative' } },
+        // Ambient background glow
+        React.createElement('div', { style: { position: 'fixed', top: 0, left: '30%', width: 600, height: 400, background: 'radial-gradient(ellipse, #3b82f606 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 } }),
+        crit > 0 && React.createElement('div', { style: { position: 'fixed', top: 0, right: 0, width: 400, height: 300, background: 'radial-gradient(ellipse, #FF174406 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 } }),
+
+        // Header
+        React.createElement('header', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 28px', height: 54, borderBottom: '1px solid #1a2440', flexShrink: 0, background: '#06080eee', backdropFilter: 'blur(12px)', position: 'relative', zIndex: 10 } },
+          React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 18 } },
+            // Logo
+            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } },
+              React.createElement('div', { style: { width: 30, height: 30, borderRadius: 8, background: 'linear-gradient(135deg, #3b82f6, #00E676)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#06080e', boxShadow: '0 0 20px #3b82f625' } }, 'E'),
+              React.createElement('div', null,
+                React.createElement('div', { style: { fontWeight: 800, fontSize: 14, color: '#e8ecf4', letterSpacing: -0.5, lineHeight: 1 } }, 'EPM'),
+                React.createElement('div', { style: { fontSize: 9, color: '#4a5570', letterSpacing: 1.5, textTransform: 'uppercase', lineHeight: 1, marginTop: 2 } }, 'Event Health Engine'),
+              ),
+            ),
+            React.createElement('div', { style: { width: 1, height: 28, background: '#1a2440' } }),
+            navBtn('fleet', '◫', 'Fleet', view === 'fleet' || view === 'detail'),
+            navBtn('admin', '⚙', 'Rules Engine', view === 'admin'),
+          ),
+          React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 24 } },
+            statChip(crit, 'CRIT', '#FF1744'),
+            statChip(esc, 'ESC', '#FF6E40'),
+            statChip(totalFlags, 'FLAGS', '#8b95ad'),
+            React.createElement('div', { style: { width: 1, height: 24, background: '#1a2440' } }),
+            React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+              React.createElement('div', { style: { width: 7, height: 7, borderRadius: '50%', background: '#00E676', boxShadow: '0 0 10px #00E67650' } }),
+              React.createElement('span', { style: { fontFamily: "'JetBrains Mono'", fontSize: 11, color: '#4a5570' } }, time.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})),
+            ),
+          ),
+        ),
+
+        // Main
+        React.createElement('main', { style: { flex: 1, overflow: 'auto', paddingTop: 24, position: 'relative', zIndex: 1 } },
+          view === 'fleet' && React.createElement(FleetView, { events, onSelect: goDetail }),
+          view === 'detail' && selectedEvt && React.createElement(EventDetail, { evt: selectedEvt, onBack: goFleet }),
+          view === 'admin' && React.createElement(AdminPanel, null),
+        ),
+      );
+    };
+
+    ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+  </script>
+</body>
+</html>
