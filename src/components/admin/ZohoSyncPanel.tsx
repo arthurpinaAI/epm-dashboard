@@ -7,6 +7,7 @@ import type { SyncStatusInfo, SyncLogRow } from '@/types';
 const SEV: Record<string, string> = {
   success: '#22c55e',
   error:   '#ef4444',
+  timeout: '#ef4444',
   running: '#f59e0b',
 };
 

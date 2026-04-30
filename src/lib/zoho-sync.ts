@@ -10,6 +10,10 @@ const MONTHS_SHORT  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oc
 
 // ─── Auth ─────────────────────────────────────────────────────────────────
 
+function withTimeout(ms: number): AbortSignal {
+  return AbortSignal.timeout(ms);
+}
+
 async function getAccessToken(): Promise<string> {
   const dc     = process.env.ZOHO_DC || 'in';
   const url    = `https://accounts.zoho.${dc}/oauth/v2/token`;
@@ -20,7 +24,7 @@ async function getAccessToken(): Promise<string> {
     client_secret: process.env.ZOHO_CLIENT_SECRET!,
   });
 
-  const res  = await fetch(url, { method: 'POST', body });
+  const res  = await fetch(url, { method: 'POST', body, signal: withTimeout(15_000) });
   const json = await res.json() as { access_token?: string; error?: string };
   if (!json.access_token) throw new Error(`Zoho auth failed: ${JSON.stringify(json)}`);
   return json.access_token;
@@ -120,7 +124,7 @@ async function fetchCsvPage(token: string, cursor?: string | null, criteria?: st
   let attempt = 0, delay = 1000;
   // eslint-disable-next-line no-constant-condition
   while (true) {
-    const res  = await fetch(url, { method: 'GET', headers });
+    const res  = await fetch(url, { method: 'GET', headers, signal: withTimeout(45_000) });
     const code = res.status;
 
     if (code === 204) return { headers: [], rows: [], nextCursor: null, more: false };
@@ -266,6 +270,13 @@ export async function runSync(mode: SyncMode): Promise<SyncResult> {
 }
 
 export async function getSyncStatus() {
+  // Mark syncs stuck in "running" for >3 minutes as timed out
+  const staleThreshold = new Date(Date.now() - 3 * 60 * 1000);
+  await prisma.syncLog.updateMany({
+    where:  { status: 'running', startedAt: { lt: staleThreshold } },
+    data:   { status: 'timeout', error: 'Function timed out', completedAt: new Date() },
+  });
+
   const [logs, lastSyncState, rawCount] = await Promise.all([
     prisma.syncLog.findMany({ orderBy: { startedAt: 'desc' }, take: 20 }),
     prisma.syncState.findUnique({ where: { key: STATE_KEY } }),
