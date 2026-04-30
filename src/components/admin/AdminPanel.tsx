@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import { T, SEV_MAP } from '@/lib/tokens';
 import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 import { FormulaBuilder } from './FormulaBuilder';
+import { ZohoSyncPanel } from './ZohoSyncPanel';
 import type { RuleRow, FormulaRow, TierRow, DropdownRow, FormulaBlock } from '@/types';
 
 interface Props {
@@ -18,6 +19,7 @@ const TABS = [
   { id: 'rules', label: 'Red Flag Rules', icon: '⚑' },
   { id: 'tiers', label: 'Decision Tiers', icon: '◆' },
   { id: 'dropdowns', label: 'Dropdowns', icon: '▤' },
+  { id: 'sync', label: 'Zoho Sync', icon: '⇄' },
 ] as const;
 
 type TabId = (typeof TABS)[number]['id'];
@@ -647,6 +649,9 @@ export function AdminPanel({ initialRules, initialFormulas, initialTiers, initia
             ))}
           </div>
         )}
+
+        {/* ═══ ZOHO SYNC ═══ */}
+        {tab === 'sync' && <ZohoSyncPanel />}
       </div>
     </div>
   );

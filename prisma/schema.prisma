@@ -167,3 +167,35 @@ model DropdownOption {
   @@unique([category, value])
   @@map("dropdown_options")
 }
+
+// ─── Zoho sync tables ───
+
+model RawRegistration {
+  id           Int       @id @default(autoincrement())
+  recordId     String    @unique @map("record_id")
+  data         Json
+  modifiedTime DateTime? @map("modified_time")
+  syncedAt     DateTime  @default(now()) @map("synced_at")
+
+  @@map("raw_registrations")
+}
+
+model SyncLog {
+  id            Int       @id @default(autoincrement())
+  syncType      String    @map("sync_type")
+  status        String    @default("running")
+  recordsSynced Int       @default(0) @map("records_synced")
+  durationMs    Int?      @map("duration_ms")
+  error         String?
+  startedAt     DateTime  @default(now()) @map("started_at")
+  completedAt   DateTime? @map("completed_at")
+
+  @@map("sync_logs")
+}
+
+model SyncState {
+  key   String @id
+  value String
+
+  @@map("sync_state")
+}

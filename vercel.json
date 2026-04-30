@@ -1,4 +1,10 @@
 {
   "buildCommand": "prisma generate && prisma db push && tsx prisma/seed.ts && next build",
-  "installCommand": "npm install"
+  "installCommand": "npm install",
+  "crons": [
+    {
+      "path": "/api/cron/sync",
+      "schedule": "*/15 * * * *"
+    }
+  ]
 }

@@ -120,3 +120,20 @@ export interface DropdownRow {
   value: string;
   sortOrder: number;
 }
+
+export interface SyncLogRow {
+  id:            number;
+  syncType:      string;
+  status:        string;
+  recordsSynced: number;
+  durationMs:    number | null;
+  error:         string | null;
+  startedAt:     Date;
+  completedAt:   Date | null;
+}
+
+export interface SyncStatusInfo {
+  logs:         SyncLogRow[];
+  lastSyncTime: string | null;
+  rawCount:     number;
+}
